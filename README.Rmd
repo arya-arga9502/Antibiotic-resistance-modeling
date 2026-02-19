@@ -1,5 +1,5 @@
 ---
-title: "Antibiotic-resistance.Rmd"
+title: "Modeling antibiotic resistance in populations using a compartmental model"
 output: github_document
 Author: Arya Gautam
 editor_options: 

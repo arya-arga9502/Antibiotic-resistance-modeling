@@ -1,4 +1,5 @@
-Antibiotic-resistance.Rmd
+Modeling antibiotic resistance in populations using a compartmental
+model
 ================
 
 Here is the final model with populations A (high antibiotic use, high
@@ -91,7 +92,7 @@ First, let’s look at population A
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odin1ed4638d.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpErBinj/devtools_install_123131a1596/00LOCK-file123260ee0d0/00new/odin1ed4638d/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpB9u2uy/devtools_install_34b606fb863/00LOCK-file34b2fef58c/00new/odin1ed4638d/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odin1ed4638d)
     ## 
@@ -135,7 +136,7 @@ Now, for population B
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odinf74973bb.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpErBinj/devtools_install_1237c1b7dec/00LOCK-file1234b25d7a0/00new/odinf74973bb/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpB9u2uy/devtools_install_34b2f57f8c/00LOCK-file34b62296ffb/00new/odinf74973bb/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odinf74973bb)
     ## 
