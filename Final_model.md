@@ -91,7 +91,7 @@ First, let’s look at population A
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odin1ed4638d.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpeEKwM3/devtools_install_1850933d959c9/00LOCK-file1850943b1910f/00new/odin1ed4638d/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/Rtmp8O1G3x/devtools_install_1863b1cdc6f2/00LOCK-file1863b8e905c2/00new/odin1ed4638d/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odin1ed4638d)
     ## 
@@ -135,7 +135,7 @@ Now, for population B
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odinf74973bb.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpeEKwM3/devtools_install_185092ffdfb3c/00LOCK-file185092647edb5/00new/odinf74973bb/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/Rtmp8O1G3x/devtools_install_1863b5c8ec598/00LOCK-file1863b6fef88dd/00new/odinf74973bb/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odinf74973bb)
     ## 
