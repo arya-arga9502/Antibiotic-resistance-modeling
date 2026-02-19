@@ -5,7 +5,7 @@ Author: Arya Gautam
 editor_options: 
   chunk_output_type: console
 ---
-Here is the final model with populations A (high antibiotic use, high "immunity") and population B (low antibiotic use,low "immunity") in a 2-group structured model.
+Here is the final model with populations A (high antibiotic use, high "immunity") and population B (low antibiotic use, low "immunity") in a 2-group structured model.
 
 ![](model_design.png)
 
@@ -281,21 +281,25 @@ x_start <- c(SA=0.10, CA=0.00, I1A=0.000, I2A=0.000, R1A=0.000, R2A=0.30,
              SB=0.10, CB=0.00, I1B=0.000, I2B=0.000, R1B=0.000, R2B=0.35) #starting close to endemic equilibirium
 
 eq <- multiroot(f = eq_fn, start = x_start, parms = parms)
-cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
+cat("Steady state for endemic equilibrium:\n")
+cat(paste(names(eq$root), round(eq$root, 6), sep = " = ", collapse = "\n"), "\n")
 
 #Population B has a higher proportion of people who are resistant carriers in the steady state! 
 
 ##Stability
 eq_point <- as.numeric(eq$root)
 jac <- jacobian(func = eq_fn, x = eq_point, parms = parms)
-cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:", eigen(jac)$values,"\n")
+cat("The eigenvalues of the jacobian calculated at the steady state calculated above are:\n")
+cat(eigen(jac)$values)
 
 #The steady state is not stable.
 ```
 We can see that population B has a higher proportion of its population who carry resistant strains of Streptococcus Pneumonia in equilibrium conditions. However, we find that this is not a stable equilibrium.
 
+
 We can also start at multiple randomly generated conditions and follow the trajectory numerically to assess steady states.
 Here's what we get when we do that. 
+
 ```{r,echo=FALSE, warning=FALSE}
 ## Check with multiple random starting conditions
 set.seed(42)
@@ -361,6 +365,7 @@ Oof! That's messy!
 We can also model them as separate populations. 
 
 First, let's look at population A
+
 ```{r,echo=FALSE, warning=FALSE}
 #Population A
 sir_model <- odin({
@@ -459,18 +464,21 @@ eq_fn <- function(x, parms){
 # Starting point
 x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
 eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
-cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
+cat("Steady state for endemic equilibrium:\n")
+cat(paste(names(eq$root), round(eq$root, 6), sep = " = ", collapse = "\n"), "\n")
 
 #Stability
 x_eq <- eq$root
 J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
 eig <- eigen(J)$values
-cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:",eig, "\n") #not stable!
+cat("The eigenvalues of the jacobian calculated at the steady state calculated above are:\n") #not stable!
+cat(eig)
 ```
 33% of the population end up as carriers of resistant strains of Streptococcus Pneumonia in population A. 
 This steady state, however, isn't stable.
 
 Similarly, starting at multiple random conditions give us these steady states
+
 ```{r,echo=FALSE, warning=FALSE}
 ##Check iteratively with many random starting conditions
 set.seed(1)
@@ -496,6 +504,7 @@ ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title=
 ```
 
 Now, for population B
+
 ```{r,echo=FALSE, warning=FALSE}
 #Population B
 sir_model <- odin({
@@ -595,18 +604,21 @@ eq_fn <- function(x, parms){
 # Starting point
 x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
 eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
-cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
+cat("Steady state for endemic equilibrium:\n")
+cat(paste(names(eq$root), round(eq$root, 6), sep = " = ", collapse = "\n"), "\n")
 
 #Stability
 x_eq <- eq$root
 J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
 eig <- eigen(J)$values
-cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:",eig, "\n") #not stable
+cat("The eigenvalues of the jacobian calculated at the steady state calculated above are:\n") #not stable!
+cat(eig)
 ```
 38% of the population end up as carriers of resistant strains of Streptococcus Pneumonia in population A. 
 This steady state is also not stable.
 
 Starting at multiple random conditions give us these steady states
+
 ```{r,echo=FALSE, warning=FALSE}
 ##Check iteratively with many random starting conditions
 set.seed(1)
@@ -631,4 +643,4 @@ names(roots) <- c("Class","Proportion")
 ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
 ```
 
-In conclusion, can see that population B, despite using antibiotics only 50% of the time that they get an infection with Streptococcus Pneumonia, end up with a higher proportion of its population who become carriers of resistant strains no matter how me model the system.
+In conclusion, can see that population B, despite using antibiotics only 50% of the time that they get an infection with Streptococcus Pneumonia compared to population A who use it 100% of the times, end up with a higher proportion of its population who become carriers of resistant strains no matter how me model the system.

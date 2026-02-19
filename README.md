@@ -3,7 +3,7 @@ model
 ================
 
 Here is the final model with populations A (high antibiotic use, high
-“immunity”) and population B (low antibiotic use,low “immunity”) in a
+“immunity”) and population B (low antibiotic use, low “immunity”) in a
 2-group structured model.
 
 ![](model_design.png)
@@ -51,9 +51,24 @@ r = probability of resistance emergence (3e-06)
 
 Equilibrium and stability analysis for the 2 group structured model
 
-    ## The steady state for an endemic equilibrium is: 0.1288658 0 0 0 5.393284e-05 0.2096969 0.2536417 0 0 0 0.0001325377 0.2576092
+    ## Steady state for endemic equilibrium:
 
-    ## The eigenvalue of the jacobian calculated at the steady state calculated above is: 1.016279 -0.1065823 -0.08313644 -0.05738028 -0.03727856 -0.03565717 -0.03393409 -0.0310727 -0.02884228 -0.02222297 -0.02222232 -1.008083e-13
+    ## SA = 0.128866
+    ## CA = 0
+    ## I1A = 0
+    ## I2A = 0
+    ## R1A = 5.4e-05
+    ## R2A = 0.209697
+    ## SB = 0.253642
+    ## CB = 0
+    ## I1B = 0
+    ## I2B = 0
+    ## R1B = 0.000133
+    ## R2B = 0.257609
+
+    ## The eigenvalues of the jacobian calculated at the steady state calculated above are:
+
+    ## 1.016279 -0.1065823 -0.08313644 -0.05738028 -0.03727856 -0.03565717 -0.03393409 -0.0310727 -0.02884228 -0.02222297 -0.02222232 -1.008083e-13
 
 We can see that population B has a higher proportion of its population
 who carry resistant strains of Streptococcus Pneumonia in equilibrium
@@ -62,6 +77,7 @@ conditions. However, we find that this is not a stable equilibrium.
 We can also start at multiple randomly generated conditions and follow
 the trajectory numerically to assess steady states. Here’s what we get
 when we do that.
+
 ![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 Oof! That’s messy!
@@ -92,7 +108,7 @@ First, let’s look at population A
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odin1ed4638d.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpB9u2uy/devtools_install_34b606fb863/00LOCK-file34b2fef58c/00new/odin1ed4638d/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpqRF6Mi/devtools_install_62e52774ce4/00LOCK-file62e2f3e63fa/00new/odin1ed4638d/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odin1ed4638d)
     ## 
@@ -101,16 +117,27 @@ First, let’s look at population A
 
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-    ## The steady state for an endemic equilibrium is: 0.5713959 0 0 0 8.449336e-05 0.3285196
+    ## Steady state for endemic equilibrium:
 
-    ## The eigenvalue of the jacobian calculated at the steady state calculated above is: 0.9905501+0i 0.02606307+0.02723216i 0.02606307-0.02723216i -0.01431001+0.02160876i -0.01431001-0.02160876i 0.02155559+0i
+    ## S = 0.571396
+    ## C = 0
+    ## I1 = 0
+    ## I2 = 0
+    ## R1 = 8.4e-05
+    ## R2 = 0.32852
+
+    ## The eigenvalues of the jacobian calculated at the steady state calculated above are:
+
+    ## 0.9905501+0i 0.02606307+0.02723216i 0.02606307-0.02723216i -0.01431001+0.02160876i -0.01431001-0.02160876i 0.02155559+0i
 
 33% of the population end up as carriers of resistant strains of
 Streptococcus Pneumonia in population A. This steady state, however,
 isn’t stable.
 
 Similarly, starting at multiple random conditions give us these steady
-states ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+states
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 Now, for population B
 
@@ -136,7 +163,7 @@ Now, for population B
     ##      2 warnings generated.
     ##      clang -arch arm64 -std=gnu2x -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG   -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2  -UNDEBUG -Wall -pedantic -g -O0 -c registration.c -o registration.o
     ##      clang -arch arm64 -std=gnu2x -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o odinf74973bb.so odin.o registration.o -F/Library/Frameworks/R.framework/.. -framework R
-    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpB9u2uy/devtools_install_34b2f57f8c/00LOCK-file34b62296ffb/00new/odinf74973bb/libs
+    ##      installing to /private/var/folders/z3/b12ywj857y3dgs1x20wklpfm0000gn/T/RtmpqRF6Mi/devtools_install_62e6addf829/00LOCK-file62e1800d6fe/00new/odinf74973bb/libs
     ##      ** checking absolute paths in shared objects and dynamic libraries
     ##   ─  DONE (odinf74973bb)
     ## 
@@ -145,18 +172,29 @@ Now, for population B
 
 ![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
-    ## The steady state for an endemic equilibrium is: 0.5713633 0 0 0 0.0001947052 0.378442
+    ## Steady state for endemic equilibrium:
 
-    ## The eigenvalue of the jacobian calculated at the steady state calculated above is: 0.9891105+0i 0.0271241+0.03009177i 0.0271241-0.03009177i -0.01521797+0.02316452i -0.01521797-0.02316452i 0.02376028+0i
+    ## S = 0.571363
+    ## C = 0
+    ## I1 = 0
+    ## I2 = 0
+    ## R1 = 0.000195
+    ## R2 = 0.378442
+
+    ## The eigenvalues of the jacobian calculated at the steady state calculated above are:
+
+    ## 0.9891105+0i 0.0271241+0.03009177i 0.0271241-0.03009177i -0.01521797+0.02316452i -0.01521797-0.02316452i 0.02376028+0i
 
 38% of the population end up as carriers of resistant strains of
 Streptococcus Pneumonia in population A. This steady state is also not
 stable.
 
 Starting at multiple random conditions give us these steady states
+
 ![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 In conclusion, can see that population B, despite using antibiotics only
-50% of the time that they get an infection with Streptococcus Pneumonia,
-end up with a higher proportion of its population who become carriers of
-resistant strains no matter how me model the system.
+50% of the time that they get an infection with Streptococcus Pneumonia
+compared to population A who use it 100% of the times, end up with a
+higher proportion of its population who become carriers of resistant
+strains no matter how me model the system.
