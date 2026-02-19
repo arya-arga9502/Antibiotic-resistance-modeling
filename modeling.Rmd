@@ -1,0 +1,1851 @@
+---
+title: "Antibiotic modeling"
+output: html_document
+date: "2026-01-19"
+editor_options: 
+  chunk_output_type: console
+  Author: Arya Gautam
+---
+
+##Note: It may be important to restart R to make sure each model solves its ODEs independently to avoid using cached model which reuses the solutions
+
+#Load libraries
+```{r}
+library(tidyverse) 
+library(odin)
+library(pkgbuild)
+library(pkgload)
+library(numDeriv)
+library(rootSolve)
+library(deSolve)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+```
+
+#First iteration of the model: all become immune quickly!
+```{r}
+#For population A
+
+# Define an odin model: 
+  sir <- odin({
+
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S + f*C + (1-r)*I*e + f*R1 + f*R2                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - c*p*((R1+R2)/N)*(1-a)*S #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.01
+	initial(S) <- 0.95
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.01
+	initial(R2) <- 0.01
+
+# Set default parameter values, but allow the user to put in their own too
+	c <- user(5)        #unit is no of contacts/person*time (so 5 would be 5 contacts per day per person)
+	a <- user(0.0028)   #probability that a contact will lead to disease (as opposed to just carriage)
+	v <- user(0.00132)  #rate; people/day 
+	f <- user(1/35)     #rate of clearance (1/days)
+  e <- user(1/14)     #rate of recovery (1/days)
+  r <- user(0.2)      # probability that a person will develop antibiotic resistance
+  p <- user(1)    # probability that a contact with lead to transmission
+	})
+
+# Generate a specific odin instance: 
+model <- sir$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=720, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + 
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+	theme(legend.title=element_blank())
+
+figure
+
+
+#For population B
+
+# Define an odin model: 
+  sir <- odin({
+
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S + f*C + (1-r)*I*e + f*R1 + f*R2                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - c*p*((R1+R2)/N)*(1-a)*S #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.01
+	initial(S) <- 0.95
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.01
+	initial(R2) <- 0.01
+
+# Set default parameter values, but allow the user to put in their own too
+	c <- user(5)       #unit no of contacts/person*time (so 5 would be 5 contacts per day per person)
+	a <- user(0.0115)   #probablity that a contact will lead to disease (as opposed to just carriage)
+	v <- user(0.00126) #rate; people/day 
+	f <- user(1/35)    #rate of clearance (1/days)
+  e <- user(1/14)     #rate of recovery (1/days)
+  r <- user(0.14) # probability that a contact with lead to transmission
+  p <- user(1)    # probablity that a person will develop antibiotic resistance
+	}) 
+
+
+# Generate a specific odin instance: 
+model <- sir$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=720, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + 
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+	theme(legend.title=element_blank())
+
+figure
+
+##my rationale of keeping p=1 is because if the time to first acquisition is 1 month for some of the serotypes, everyone must have acquired it at some point? papers measuring rate of transmission (beta) which is c*p might report lower values of p, but this does not consider whether someone didn't show carriage because it did not lead to transmission or because the person already has immunity to it from carriage earlier in life! if in our simplistic model, we are assuming that everyone is fully susceptible, then it makes sense to keep a higher value of p than that right?
+
+
+
+```
+
+##Iteration with different parameters: everyone becomes immune or the infection clears out quickly.
+```{r}
+# Disable odin caching completely
+options(odin.cache = FALSE)
+
+# Define the SIR model with placeholders for user() parameters
+sir_model <- odin({
+  N <- M + S + C + I + R1 + R2
+
+  deriv(M) <- v*S + f*C + (1-r)*I*e + f*R1 + f*R2
+  deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) -
+              c*p*((R1+R2)/N)*a*S - c*p*((R1+R2)/N)*(1-a)*S
+  deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C
+  deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I
+  deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S
+  deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S
+
+  initial(M) <- 0.01
+  initial(S) <- 0.95
+  initial(C) <- 0.01
+  initial(I) <- 0.01
+  initial(R1) <- 0.01
+  initial(R2) <- 0.01
+
+  # user() parameters must be constants here
+  c <- user(1.0)
+  a <- user(1.0)
+  v <- user(1.0)
+  f <- user(1.0)
+  e <- user(1.0)
+  r <- user(1.0)
+  p <- user(1.0)
+})
+
+# Parameter grid
+param_grid <- expand.grid(
+  v = c(0.00132, 0.000132, 0.0000132),
+  a = c(0.0028, 0.00028, 0.028),
+  r = c(0.2, 0.02, 0.002),
+  p = c(0.5, 1, 0.05, 0.005),
+  c = 5,
+  f = 1/35,
+  e = 1/14
+)
+
+# Output PDF
+pdf("/Users/aryagautam/Desktop/Kissler_Lab/simulation_plots.pdf", width = 8, height = 6)
+
+for(i in seq_len(nrow(param_grid))) {
+
+  params <- param_grid[i, ]
+
+  # Supply parameters when creating model instance
+  sir_instance <- sir_model$new(
+    c = params$c,
+    a = params$a,
+    v = params$v,
+    f = params$f,
+    e = params$e,
+    r = params$r,
+    p = params$p
+  )
+
+  # Time vector
+  t <- seq(0, 720, by = 10)
+
+  # Run simulation
+  sol <- as_tibble(as.data.frame(sir_instance$run(t))) %>%
+    mutate(time = t) %>%
+    pivot_longer(cols = c(M, S, C, I, R1, R2),
+                 names_to = "compartment",
+                 values_to = "value")
+
+  # Plot
+  figure <- sol %>%
+    ggplot(aes(x = time, y = value, col = factor(compartment, levels = c("M","S","C","I","R1","R2")))) +
+    geom_line(size = 1) +
+    scale_color_manual(
+      values = c("forestgreen","dodgerblue","purple","black","brown","brown2"),
+      labels = c("Immune","Susceptible","Carrier","Infected","Resistant_infected","Resistant_carrier")
+    ) +
+    theme_classic() +
+    theme(legend.title = element_blank()) +
+    labs(title = paste0("Run ", i,
+                        ": v=", params$v,
+                        ", a=", params$a,
+                        ", r=", params$r,
+                        ", p=", params$p))
+
+  # Print plot to PDF
+  print(figure)
+}
+
+dev.off()
+
+
+```
+
+###Iteration with different parameters without vaccine(subsection immune): everyone becomes immune or the infection clears out quickly.
+```{r}
+# Disable odin caching completely
+options(odin.cache = FALSE)
+
+# Define the SIR model with placeholders for user() parameters
+sir_model <- odin({
+  N <- M + S + C + I + R1 + R2
+
+  deriv(M) <- v*S + f*C + (1-r)*I*e + f*R1 + f*R2
+  deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) -
+              c*p*((R1+R2)/N)*a*S - c*p*((R1+R2)/N)*(1-a)*S
+  deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C
+  deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I
+  deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S
+  deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S
+
+  initial(M) <- 0.10
+  initial(S) <- 0.88
+  initial(C) <- 0.01
+  initial(I) <- 0.01
+  initial(R1) <- 0.00
+  initial(R2) <- 0.00
+
+  # user() parameters must be constants here
+  c <- user(1.0)
+  a <- user(1.0)
+  v <- user(0)
+  f <- user(1.0)
+  e <- user(1.0)
+  r <- user(1.0)
+  p <- user(1.0)
+})
+
+# Parameter grid
+param_grid <- expand.grid(
+  v = 0,
+  a = c(0.0028, 0.00028, 0.028),
+  r = c(0.2, 0.02, 0.002),
+  p = c(0.5, 1, 0.05, 0.005),
+  c = 5,
+  f = 1/35,
+  e = 1/14
+)
+
+# Output PDF
+pdf("/Users/aryagautam/Desktop/Kissler_Lab/simulation_plots_no_vaccine.pdf", width = 8, height = 6)
+
+for(i in seq_len(nrow(param_grid))) {
+
+  params <- param_grid[i, ]
+
+  # Supply parameters when creating model instance
+  sir_instance <- sir_model$new(
+    c = params$c,
+    a = params$a,
+    v = params$v,
+    f = params$f,
+    e = params$e,
+    r = params$r,
+    p = params$p
+  )
+
+  # Time vector
+  t <- seq(0, 720, by = 10)
+
+  # Run simulation
+  sol <- as_tibble(as.data.frame(sir_instance$run(t))) %>%
+    mutate(time = t) %>%
+    pivot_longer(cols = c(M, S, C, I, R1, R2),
+                 names_to = "compartment",
+                 values_to = "value")
+
+  # Plot
+  figure <- sol %>%
+    ggplot(aes(x = time, y = value, col = factor(compartment, levels = c("M","S","C","I","R1","R2")))) +
+    geom_line(size = 1) +
+    scale_color_manual(
+      values = c("forestgreen","dodgerblue","purple","black","brown","brown2"),
+      labels = c("Immune","Susceptible","Carrier","Infected","Resistant_infected","Resistant_carrier")
+    ) +
+    theme_classic() +
+    theme(legend.title = element_blank()) +
+    labs(title = paste0("Run ", i,
+                        ": v=", params$v,
+                        ", a=", params$a,
+                        ", r=", params$r,
+                        ", p=", params$p))
+
+  # Print plot to PDF
+  print(figure)
+}
+
+dev.off()
+
+```
+
+##To make the model more realistic, we need to consider multiple serotypes circulating in the population, for this we will consider waning immunity (even though Strep gives you lifelong immunity, we are susceptible to another serotype; however, serotype 1 might compete with serotype 2 during the time it invades you so you will only be infected with one serotype at a time, but as soon as it leaves your body, you will be susceptible to another serotype in the population). We will use a grid of parameters. Also, we will start with a immune subset as well as different vaccination rates (including 0).
+```{r}
+# Disable odin caching completely
+options(odin.cache = FALSE)
+
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(1.0)
+  a <- user(1.0)
+  v <- user(1.0)
+  f <- user(1.0)
+  e <- user(1.0)
+  r <- user(1.0)
+  p <- user(1.0)
+})
+
+# Parameter grid
+param_grid <- expand.grid(
+  v = c(0.00132, 0.000132, 0.0000132,0),
+  a = c(0.0028, 0.00028, 0.028),
+  r = c(0.2, 0.02, 0.002),
+  p = c(0.5, 1, 0.05, 0.005),
+  c = c(5,10),
+  f = 1/35,
+  e = 1/14
+)
+
+# Output PDF
+pdf("/Users/aryagautam/Desktop/Kissler_Lab/simulation_plots_no_lasting_immunity.pdf", width = 8, height = 6)
+
+for(i in seq_len(nrow(param_grid))) {
+
+  params <- param_grid[i, ]
+
+  # Supply parameters when creating model instance
+  sir_instance <- sir_model$new(
+    c = params$c,
+    a = params$a,
+    v = params$v,
+    f = params$f,
+    e = params$e,
+    r = params$r,
+    p = params$p
+  )
+
+  # Time vector
+  t <- seq(0, 720, by = 10)
+
+  # Run simulation
+  sol <- as_tibble(as.data.frame(sir_instance$run(t))) %>%
+    mutate(time = t) %>%
+    pivot_longer(cols = c(M, S, C, I, R1, R2),
+                 names_to = "compartment",
+                 values_to = "value")
+
+  # Plot
+  figure <- sol %>%
+    ggplot(aes(x = time, y = value, col = factor(compartment, levels = c("M","S","C","I","R1","R2")))) +
+    geom_line(size = 1) +
+    scale_color_manual(
+      values = c("forestgreen","dodgerblue","purple","black","brown","brown2"),
+      labels = c("Immune","Susceptible","Carrier","Infected","Resistant_infected","Resistant_carrier")
+    ) +
+    theme_classic() +
+    theme(legend.title = element_blank()) +
+    labs(title = paste0("Run ", i,
+                        ": v=", params$v,
+                        ", a=", params$a,
+                        ", r=", params$r,
+                        ", p=", params$p))
+
+  # Print plot to PDF
+  print(figure)
+}
+
+dev.off()
+
+#Another round with one level filtration of the parameters
+param_grid_2 <- expand.grid(
+  v = c(0.000132, 0.0000132),
+  a = c(0.0028, 0.00028, 0.028),
+  r = c(0.2, 0.02, 0.002),
+  p = c(0.005),
+  c = 10,
+  f = 1/35,
+  e = 1/14
+)
+
+# Disable odin caching completely
+options(odin.cache = FALSE)
+
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(1.0)
+  a <- user(1.0)
+  v <- user(1.0)
+  f <- user(1.0)
+  e <- user(1.0)
+  r <- user(1.0)
+  p <- user(1.0)
+})
+
+# Output PDF
+pdf("/Users/aryagautam/Desktop/Kissler_Lab/simulation_plots_no_lasting_immunity_2.pdf", width = 8, height = 6)
+
+for(i in seq_len(nrow(param_grid_2))) {
+
+  params <- param_grid_2[i, ]
+
+  # Supply parameters when creating model instance
+  sir_instance <- sir_model$new(
+    c = params$c,
+    a = params$a,
+    v = params$v,
+    f = params$f,
+    e = params$e,
+    r = params$r,
+    p = params$p
+  )
+
+  # Time vector
+  t <- seq(0, 720, by = 10)
+
+  # Run simulation
+  sol <- as_tibble(as.data.frame(sir_instance$run(t))) %>%
+    mutate(time = t) %>%
+    pivot_longer(cols = c(M, S, C, I, R1, R2),
+                 names_to = "compartment",
+                 values_to = "value")
+
+  # Plot
+  figure <- sol %>%
+    ggplot(aes(x = time, y = value, col = factor(compartment, levels = c("M","S","C","I","R1","R2")))) +
+    geom_line(size = 1) +
+    scale_color_manual(
+      values = c("forestgreen","dodgerblue","purple","black","brown","brown2"),
+      labels = c("Immune","Susceptible","Carrier","Infected","Resistant_infected","Resistant_carrier")
+    ) +
+    theme_classic() +
+    theme(legend.title = element_blank()) +
+    labs(title = paste0("Run ", i,
+                        ": v=", params$v,
+                        ", a=", params$a,
+                        ", r=", params$r,
+                        ", p=", params$p))
+
+  # Print plot to PDF
+  print(figure)
+}
+
+dev.off()
+
+```
+
+##Parameters chosen from the above iterations.
+```{r}
+#Population A
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(10) #reasonable estimate from iteration
+  a <- user(0.03) #reasonable estimate from iteration
+  v <- user(0.0001) #reasonable estimate from iteration
+  f <- user(1/35) #based in literature
+  e <- user(1/14) #reasonable estimate from what we know
+  r <- user(0.02) #reasonable estimate from iteration
+  p <- user(0.005) #reasonable estimate from iteration+ R(1.4) from literature
+})
+
+# Generate a specific odin instance: 
+model <- sir_model$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=1095, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust=0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+#Population B
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.05
+	initial(S) <- 0.93
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(10) #reasonable estimate from iteration
+  a <- user(0.05) #reasonable estimate from iteration
+  v <- user(0.000095) #reasonable estimate from iteration
+  f <- user(1/35) #based in literature
+  e <- user(1/14) #reasonable estimate from what we know
+  r <- user(0.01) #reasonable estimate from iteration
+  p <- user(0.005) #reasonable estimate from iteration+ R(1.4) from literature
+})
+
+# Generate a specific odin instance: 
+model <- sir_model$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=1095, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust =0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+```
+
+##Time scales assessment: with vaccination=0 because otherwise with no births, equilibirium will only be reached when everyone reaches immunity
+```{r}
+#Population A
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(10) #reasonable estimate from iteration
+  a <- user(0.03) #reasonable estimate from iteration
+  v <- user(0) #reasonable estimate from iteration
+  f <- user(1/35) #based in literature
+  e <- user(1/14) #reasonable estimate from what we know
+  r <- user(0.02) #reasonable estimate from iteration
+  p <- user(0.005) #reasonable estimate from iteration+ R(1.4) from literature
+})
+
+# Generate a specific odin instance: 
+model <- sir_model$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=1095, by=10) #did for 1 year, 3 years and 6 years
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust=0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10,a=0.03,v=0,f=1/35,e=1/14,r=0.02,p=0.005, M=0.10)
+
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I <- x[3]; R1 <- x[4]; R2 <- x[5]
+  with(parms, {
+    N <- S + C + I + R1 + R2 + M
+
+    dS  <- -c*p*((I+C)/N)*a*S -
+           c*p*((I+C)/N)*(1-a)*S -
+           c*p*((R1+R2)/N)*a*S -
+           c*p*((R1+R2)/N)*(1-a)*S +
+           f*C + (1-r)*e*I + f*R1 + f*R2
+
+    dC  <-  c*p*((I+C)/N)*(1-a)*S -
+            f*C -
+            c*p*((R1+R2)/N)*C
+
+    dI  <-  c*p*((I+C)/N)*a*S -
+            e*I
+
+    dR1 <-  r*e*I -
+            f*R1 +
+            c*p*((R1+R2)/N)*a*S
+
+    dR2 <- -f*R2 +
+            c*p*((R1+R2)/N)*C +
+            c*p*((R1+R2)/N)*(1-a)*S
+
+    mass <- S + C + I + R1 + R2 - (1 - M)
+
+    # drop dS (redundant once you enforce mass), keep others + mass
+    c(dC, dI, dR1, dR2, mass)
+  })
+}
+
+# IMPORTANT: start near the *observed* steady state from your plot (roughly)
+x_start <- c(S=0.88, C=0.01, I=0.01, R1=0.00, R2=0.00)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+eq$root
+eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
+sum(eq$root) + parms$M  # should be ~1
+
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(5)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
+  names(x) <- c("S","C","I","R1","R2")
+  x
+}, simplify=FALSE)
+
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+do.call(rbind, roots)
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:5)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+
+#Stability
+rhs5 <- function(x, parms) {
+  S  <- x[1]; C <- x[2]; I <- x[3]; R1 <- x[4]; R2 <- x[5]
+  with(parms, {
+    N <- S + C + I + R1 + R2 + M  # include Immune if fixed
+
+    dS  <- -c*p*((I+C)/N)*a*S -
+           c*p*((I+C)/N)*(1-a)*S -
+           c*p*((R1+R2)/N)*a*S -
+           c*p*((R1+R2)/N)*(1-a)*S +
+           f*C + (1-r)*e*I + f*R1 + f*R2
+
+    dC  <-  c*p*((I+C)/N)*(1-a)*S -
+            f*C -
+            c*p*((R1+R2)/N)*C
+
+    dI  <-  c*p*((I+C)/N)*a*S -
+            e*I
+
+    dR1 <-  r*e*I -
+            f*R1 +
+            c*p*((R1+R2)/N)*a*S
+
+    dR2 <- -f*R2 +
+            c*p*((R1+R2)/N)*C +
+            c*p*((R1+R2)/N)*(1-a)*S
+
+    c(dS, dC, dI, dR1, dR2)
+  })
+}
+x_eq <- roots$Proportion[1:5]
+
+J <- numDeriv::jacobian(func = rhs5, x = x_eq, parms = parms)
+
+eig <- eigen(J)$values
+eig #all negative so stable!
+
+
+#Population B
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I + R1 + R2 
+	
+# define the ODEs:
+  deriv(M) <- v*S                                                                                              #immune
+	deriv(S) <- -v*S - c*p*((I+C)/N)*a*S - c*p*((I+C)/N)*S*(1-a) - c*p*((R1+R2)/N)*a*S - 
+	            c*p*((R1+R2)/N)*(1-a)*S+ f*C + (1-r)*I*e +   f*R1 + f*R2                                         #susceptible
+	deriv(C) <- c*p*((I+C)/N)*S*(1-a) - f*C - c*p*((R1+R2)/N)*C                                                  #carrier
+	deriv(I) <- c*p*((I+C)/N)*a*S - r*I*e - (1-r)*e*I                                                            #infected
+	deriv(R1) <- r*I*e - f*R1 + c*p*((R1+R2)/N)*a*S                                                              #resistant infected
+	deriv(R2) <- -f*R2 + c*p*((R1+R2)/N)*C + c*p*((R1+R2)/N)*(1-a)*S                                             #resistant carrier
+ 
+# define initial conditions: 
+	initial(M) <- 0.05
+	initial(S) <- 0.93
+	initial(C) <- 0.01
+	initial(I) <- 0.01 
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+	
+	 # user() parameters must be constants here
+  c <- user(10) #reasonable estimate from iteration
+  a <- user(0.05) #reasonable estimate from iteration
+  v <- user(0) #reasonable estimate from iteration
+  f <- user(1/35) #based in literature
+  e <- user(1/14) #reasonable estimate from what we know
+  r <- user(0.01) #reasonable estimate from iteration
+  p <- user(0.005) #reasonable estimate from iteration+ R(1.4) from literature
+})
+
+# Generate a specific odin instance: 
+model <- sir_model$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=1095, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","brown","brown2"),label=c("Immune","Susceptible","Carrier","Infected","Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust =0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10,a=0.05,v=0,f=1/35,e=1/14,r=0.01,p=0.005, M=0.05)
+
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I <- x[3]; R1 <- x[4]; R2 <- x[5]
+  with(parms, {
+    N <- S + C + I + R1 + R2 + M
+
+    dS  <- -c*p*((I+C)/N)*a*S -
+           c*p*((I+C)/N)*(1-a)*S -
+           c*p*((R1+R2)/N)*a*S -
+           c*p*((R1+R2)/N)*(1-a)*S +
+           f*C + (1-r)*e*I + f*R1 + f*R2
+
+    dC  <-  c*p*((I+C)/N)*(1-a)*S -
+            f*C -
+            c*p*((R1+R2)/N)*C
+
+    dI  <-  c*p*((I+C)/N)*a*S -
+            e*I
+
+    dR1 <-  r*e*I -
+            f*R1 +
+            c*p*((R1+R2)/N)*a*S
+
+    dR2 <- -f*R2 +
+            c*p*((R1+R2)/N)*C +
+            c*p*((R1+R2)/N)*(1-a)*S
+
+    mass <- S + C + I + R1 + R2 - (1 - M)
+
+    # drop dS (redundant once you enforce mass), keep others + mass
+    c(dC, dI, dR1, dR2, mass)
+  })
+}
+
+# IMPORTANT: start near the *observed* steady state from your plot (roughly)
+x_start <- c(S=0.93, C=0.01, I=0.01, R1=0.00, R2=0.00)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+eq$root
+eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
+sum(eq$root) + parms$M  # should be ~1
+
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(5)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
+  names(x) <- c("S","C","I","R1","R2")
+  x
+}, simplify=FALSE)
+
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+do.call(rbind, roots)
+
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:5)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+
+#Stability
+rhs5 <- function(x, parms) {
+  S  <- x[1]; C <- x[2]; I <- x[3]; R1 <- x[4]; R2 <- x[5]
+  with(parms, {
+    N <- S + C + I + R1 + R2 + M  # include Immune if fixed
+
+    dS  <- -c*p*((I+C)/N)*a*S -
+           c*p*((I+C)/N)*(1-a)*S -
+           c*p*((R1+R2)/N)*a*S -
+           c*p*((R1+R2)/N)*(1-a)*S +
+           f*C + (1-r)*e*I + f*R1 + f*R2
+
+    dC  <-  c*p*((I+C)/N)*(1-a)*S -
+            f*C -
+            c*p*((R1+R2)/N)*C
+
+    dI  <-  c*p*((I+C)/N)*a*S -
+            e*I
+
+    dR1 <-  r*e*I -
+            f*R1 +
+            c*p*((R1+R2)/N)*a*S
+
+    dR2 <- -f*R2 +
+            c*p*((R1+R2)/N)*C +
+            c*p*((R1+R2)/N)*(1-a)*S
+
+    c(dS, dC, dI, dR1, dR2)
+  })
+}
+x_eq <- roots$Proportion[1:5]
+
+J <- numDeriv::jacobian(func = rhs5, x = x_eq, parms = parms)
+
+eig <- eigen(J)$values
+eig #all negative so stable!
+```
+
+##Modeling the population as a 2 group structured populations A and B: shared N
+```{r}
+rhs_AB <- function(t, state, parms) {
+  with(as.list(state), {
+
+    # --- pull parameters explicitly ---
+    e    <- parms$e
+    f    <- parms$f
+    r    <- parms$r
+    Mvec <- parms$M
+    beta  <- as.matrix(parms$beta)
+    betap <- as.matrix(parms$betap)
+    alpha <- as.matrix(parms$alpha)
+
+    # --- pack state into 2-vectors ---
+    S  <- c(SA,  SB)
+    C  <- c(CA,  CB)
+    I  <- c(IA,  IB)
+    R1 <- c(R1A, R1B)
+    R2 <- c(R2A, R2B)
+    R  <- R1 + R2
+
+    # --- shared N ---
+    N <- sum(S + C + I + R1 + R2) + sum(Mvec)
+
+    RN_diag <- diag(R / N, 2, 2)
+    ICN_vec <- (I + C) / N
+
+    inf_I <- as.vector(beta  %*% ICN_vec) * S
+    inf_C <- as.vector(betap %*% ICN_vec) * S
+
+    res_from_C        <- as.vector(alpha %*% (RN_diag %*% C))
+    res_to_R1_from_S  <- as.vector(beta  %*% (RN_diag %*% S))
+    res_to_R2_from_S  <- as.vector(betap %*% (RN_diag %*% S))
+
+    dI  <- inf_I - e * I
+    dC  <- inf_C - f * C - res_from_C
+    dR1 <- (r * e) * I - f * R1 + res_to_R1_from_S
+    dR2 <- -f * R2 + res_from_C + res_to_R2_from_S
+
+    dS <- -inf_I - inf_C - res_to_R1_from_S - res_to_R2_from_S +
+      f * C + (1 - r) * e * I + f * R1 + f * R2
+
+    list(c(
+      dSA  = dS[1],  dCA  = dC[1],  dIA  = dI[1],  dR1A = dR1[1], dR2A = dR2[1],
+      dSB  = dS[2],  dCB  = dC[2],  dIB  = dI[2],  dR1B = dR1[2], dR2B = dR2[2]
+    ))
+  })
+}
+
+# Parameters
+parms <- list(
+  e = 1/14,
+  f = 1/35,
+  r = c(0.02, 0.01),
+  M = c(0.10, 0.05),
+  cW = 10,
+  cB = 5,
+  aA = 0.03,
+  aB = 0.05,
+  p  = 0.005
+)
+
+# Define alpha, beta, betap (same logic, just explicit parms$ references)
+parms$beta <- with(parms, matrix(c(
+  cW*aA*p, cB*aA*p,
+  cB*aB*p, cW*aB*p
+), 2, 2, byrow = TRUE))
+
+parms$alpha <- with(parms, matrix(c(
+  cW*p, cB*p,
+  cB*p, cW*p
+), 2, 2, byrow = TRUE))
+
+parms$betap <- with(parms, matrix(c(
+  cW*(1-aA)*p, cB*(1-aA)*p,
+  cB*(1-aB)*p, cW*(1-aB)*p
+), 2, 2, byrow = TRUE))
+
+# Start state
+state0 <- c(
+  SA=0.38, CA=0.01, IA=0.01, R1A=0.00, R2A=0.00,
+  SB=0.43, CB=0.01, IB=0.01, R1B=0.00, R2B=0.00
+)
+
+times <- seq(0, 1095, by = 10)
+out <- ode(y = state0, times = times, func = rhs_AB, parms = parms)
+
+df <- as.data.frame(out)
+df$MA <- 0.10
+df$MB <- 0.05
+
+df_long <- df %>%
+  pivot_longer(-time, names_to = "var", values_to = "value") %>%
+  mutate(group = ifelse(grepl("A$", var), "A", "B"),
+         compartment = gsub("A$|B$", "", var))
+
+ggplot(df_long, aes(x = time, y = value, color = compartment, linetype = group)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("purple","black","darkgreen","brown","red","dodgerblue")) +
+  theme_minimal(base_size = 13) +
+  labs(x = "Days", y = "Proportion", color = "Compartment", linetype = "Group")
+
+
+```
+
+##Modeling the population as a 2 group structured populations A and B: independent N
+```{r}
+rhs_AB_sepN <- function(t, state, parms) {
+  with(as.list(state), {
+
+    # parameters (same as before)
+    e    <- parms$e
+    f    <- parms$f
+    r    <- parms$r
+    Mvec <- parms$M
+    beta  <- as.matrix(parms$beta)
+    betap <- as.matrix(parms$betap)
+    alpha <- as.matrix(parms$alpha)
+
+    # pack state into 2-vectors
+    S  <- c(SA,  SB)
+    C  <- c(CA,  CB)
+    I  <- c(IA,  IB)
+    R1 <- c(R1A, R1B)
+    R2 <- c(R2A, R2B)
+    R  <- R1 + R2
+
+    # ---- separate denominators (per-group totals) ----
+    Nvec <- S + C + I + R1 + R2 + Mvec      # (NA, NB)
+    ICN_vec <- (I + C) / Nvec               # within-group prevalence
+    RN_vec  <- R / Nvec
+    RN_diag <- diag(RN_vec, 2, 2)
+
+    # same structure as original, but using Nvec-based prevalences
+    inf_I <- as.vector(beta  %*% ICN_vec) * S
+    inf_C <- as.vector(betap %*% ICN_vec) * S
+
+    res_from_C       <- as.vector(alpha %*% (RN_diag %*% C))
+    res_to_R1_from_S <- as.vector(beta  %*% (RN_diag %*% S))
+    res_to_R2_from_S <- as.vector(betap %*% (RN_diag %*% S))
+
+    dI  <- inf_I - e * I
+    dC  <- inf_C - f * C - res_from_C
+    dR1 <- (r * e) * I - f * R1 + res_to_R1_from_S
+    dR2 <- -f * R2 + res_from_C + res_to_R2_from_S
+
+    dS <- -inf_I - inf_C - res_to_R1_from_S - res_to_R2_from_S +
+      f * C + (1 - r) * e * I + f * R1 + f * R2
+
+    list(c(
+      dSA  = dS[1],  dCA  = dC[1],  dIA  = dI[1],  dR1A = dR1[1], dR2A = dR2[1],
+      dSB  = dS[2],  dCB  = dC[2],  dIB  = dI[2],  dR1B = dR1[2], dR2B = dR2[2]
+    ))
+  })
+}
+
+# Parameters
+parms <- list(
+  e = 1/14,
+  f = 1/35,
+  r = c(0.02, 0.01),
+  M = c(0.10, 0.05),
+  cW = 10,
+  cB = 5,
+  aA = 0.03,
+  aB = 0.05,
+  p  = 0.005
+)
+
+# Define alpha, beta, betap 
+parms$beta <- with(parms, matrix(c(
+  cW*aA*p, cB*aA*p,
+  cB*aB*p, cW*aB*p
+), 2, 2, byrow = TRUE))
+
+parms$alpha <- with(parms, matrix(c(
+  cW*p, cB*p,
+  cB*p, cW*p
+), 2, 2, byrow = TRUE))
+
+parms$betap <- with(parms, matrix(c(
+  cW*(1-aA)*p, cB*(1-aA)*p,
+  cB*(1-aB)*p, cW*(1-aB)*p
+), 2, 2, byrow = TRUE))
+
+# Start state
+state0 <- c(
+  SA=0.38, CA=0.01, IA=0.01, R1A=0.00, R2A=0.00,
+  SB=0.43, CB=0.01, IB=0.01, R1B=0.00, R2B=0.00
+)
+
+# run with the SAME parms/state0 as you already have:
+times <- seq(0, 1095, by = 10)
+out_sepN <- ode(y = state0, times = times, func = rhs_AB_sepN, parms = parms)
+
+df <- as.data.frame(out_sepN)
+df$MA <- parms$M[1]
+df$MB <- parms$M[2]
+
+df_long <- df %>%
+  pivot_longer(-time, names_to="var", values_to="value") %>%
+  mutate(group = ifelse(grepl("A$", var), "A", "B"),
+         compartment = gsub("A$|B$", "", var))
+
+ggplot(df_long, aes(x=time, y=value, color=compartment, linetype=group)) +
+  geom_line(linewidth=1) +
+  scale_color_manual(values=c("purple","black","darkgreen","brown","red","dodgerblue")) +
+  theme_minimal(base_size=13) +
+  labs(x="Days", y="Proportion", color="Compartment", linetype="Group")
+
+```
+
+##Final model: Modeling the population as a 2 group structured populations A and B: independent N; slightly different model
+```{r}
+rhs_AB_sepN <- function(t, state, parms) {
+  with(as.list(state), {
+
+    # parameters 
+    e    <- parms$e
+    f    <- parms$f
+    r    <- parms$r
+    g    <- parms$g
+    u    <- parms$u
+    Mvec <- parms$M
+    beta  <- as.matrix(parms$beta)
+    betap <- as.matrix(parms$betap)
+    alpha <- as.matrix(parms$alpha)
+
+    # pack state into 2-vectors
+    S  <-  c(SA,  SB)
+    C  <-  c(CA,  CB)
+    I1  <- c(I1A, I1B)
+    I2  <- c(I2A, I2B)
+    R1 <-  c(R1A, R1B)
+    R2 <-  c(R2A, R2B)
+
+    Nvec <- S + C + I1 + I2 + R1 + R2 + Mvec      
+    ICN_vec <- (I1 + I2 + C) / Nvec               
+    R1_vec  <- R1 / Nvec
+    R2_vec  <- R2 / Nvec
+    RN_vec  <- R1_vec + R2_vec
+    RN_diag <- diag(RN_vec, 2, 2)
+ 
+    inf_I1 <- as.vector(beta  %*% ICN_vec) * S * u
+    inf_I2 <- as.vector(beta  %*% ICN_vec) * S * (1-u)
+    inf_C <- as.vector(betap %*% ICN_vec) * S
+    res_from_C       <- as.vector(alpha %*% (RN_diag %*% C))
+    res_to_R1_from_S <- as.vector(beta  %*% (RN_diag %*% S))
+    res_to_R2_from_S <- as.vector(betap %*% (RN_diag %*% S))
+    res_from_I1       <- as.vector(alpha %*% (RN_diag %*% I1))
+    res_from_I2       <- as.vector(alpha %*% (RN_diag %*% I2))
+
+    dI1  <- inf_I1 - e*r*I1 - e*(1-r)*I1 - res_from_I1
+    dI2  <- inf_I2 - g*I2 - res_from_I2
+    dC   <- inf_C  - f*C - res_from_C
+    
+    dR1  <- res_to_R1_from_S + res_from_I2+ res_from_I1 + r*e*I1 - g*R1 
+    dR2 <-  res_to_R2_from_S + res_from_C - f*R2 
+    
+    dS <- -inf_I1 - inf_I2 - inf_C - res_to_R1_from_S - res_to_R2_from_S +
+           f*C + g*R1 + f*R2 + (1-r)*e*I1 + g*I2
+
+    list(c(
+  dSA  = dS[1],  dCA  = dC[1],  dI1A = dI1[1], dI2A = dI2[1], dR1A = dR1[1], dR2A = dR2[1],
+  dSB  = dS[2],  dCB  = dC[2],  dI1B = dI1[2], dI2B = dI2[2], dR1B = dR1[2], dR2B = dR2[2]
+))
+ 
+  })
+}
+
+# Parameters
+parms <- list(
+  e = 1/14,
+  f = 1/35,
+  g = 1/45,
+  r = 3e-6,
+  M = c(0.10, 0.05),
+  cW = 10,
+  cB = 5,
+  aA = 0.0002,
+  aB = 0.0004,
+  p  = 0.005,
+  u  = c(1,0.5)
+)
+
+# Define alpha, beta, betap 
+parms$beta <- with(parms, matrix(c(
+  cW*aA*p, cB*aA*p,
+  cB*aB*p, cW*aB*p
+), 2, 2, byrow = TRUE))
+
+parms$alpha <- with(parms, matrix(c(
+  cW*p, cB*p,
+  cB*p, cW*p
+), 2, 2, byrow = TRUE))
+
+parms$betap <- with(parms, matrix(c(
+  cW*(1-aA)*p, cB*(1-aA)*p,
+  cB*(1-aB)*p, cW*(1-aB)*p
+), 2, 2, byrow = TRUE))
+
+# Start state
+state0 <- c(
+  SA=0.38, CA=0.01, I1A=0.005, I2A=0.005, R1A=0.00, R2A=0.00,
+  SB=0.43, CB=0.01, I1B=0.005, I2B=0.005, R1B=0.00, R2B=0.00
+)
+
+# run with the SAME parms/state0 as you already have:
+times <- seq(0, 1095, by = 10)
+out_sepN <- ode(y = state0, times = times, func = rhs_AB_sepN, parms = parms)
+
+df <- as.data.frame(out_sepN)
+df$MA <- parms$M[1]
+df$MB <- parms$M[2]
+
+df_long <- df %>%
+  pivot_longer(-time, names_to="var", values_to="value") %>%
+  mutate(group = ifelse(grepl("A$", var), "A", "B"),
+         compartment = gsub("A$|B$", "", var))
+
+ggplot(df_long, aes(x=time, y=value, color=compartment, linetype=group)) +
+  geom_line(linewidth=1) +
+  scale_color_manual(values=c("purple","black","hotpink","darkgreen","brown","red","dodgerblue")) +
+  theme_minimal(base_size=13) +
+  labs(x="Days", y="Proportion", color="Compartment", linetype="Group")
+
+```
+
+##Final model: Equilibirium and stability analysis for the 2 group structured model
+```{r}
+## Equilibrium solver for two-group resistance model
+parms <- list(
+  e = 1/14,
+  f = 1/35,
+  g = 1/45,
+  r = 3e-6,
+  MA = 0.10,
+  MB = 0.05,
+  cW = 10,
+  cB = 5,
+  aA = 0.0002,
+  aB = 0.0004,
+  p = 0.005,
+  uA = 1.0,
+  uB = 0.5
+)
+
+# Pre-compute matrices
+parms$beta <- with(parms, matrix(c(
+  cW*aA*p, cB*aA*p,
+  cB*aB*p, cW*aB*p
+), 2, 2, byrow = TRUE))
+
+parms$alpha <- with(parms, matrix(c(
+  cW*p, cB*p,
+  cB*p, cW*p
+), 2, 2, byrow = TRUE))
+
+parms$betap <- with(parms, matrix(c(
+  cW*(1-aA)*p, cB*(1-aA)*p,
+  cB*(1-aB)*p, cW*(1-aB)*p
+), 2, 2, byrow = TRUE))
+
+eq_fn <- function(x, parms) {
+  SA <- x[1]; CA <- x[2]; I1A <- x[3]; I2A <- x[4]; R1A <- x[5] ; R2A <- x[6]
+  SB <- x[7]; CB <- x[8]; I1B <- x[9]; I2B <- x[10]; R1B <- x[11]; R2B <- x[12]
+  
+  # Extract parameters
+  e <- parms$e
+  f <- parms$f
+  g <- parms$g
+  r <- parms$r
+  MA <- parms$MA
+  MB <- parms$MB
+  uA <- parms$uA
+  uB <- parms$uB
+  beta <- parms$beta
+  betap <- parms$betap
+  alpha <- parms$alpha
+  
+  # Pack into vectors
+  S <- c(SA, SB)
+  C <- c(CA, CB)
+  I1 <- c(I1A, I1B)
+  I2 <- c(I2A, I2B)
+  R1 <- c(R1A, R1B)
+  R2 <- c(R2A, R2B)
+  Mvec <- c(MA, MB)
+  u <- c(uA, uB)
+  
+  # Calculate derived quantities
+  Nvec <- S + C + I1 + I2 + R1 + R2 + Mvec
+  ICN_vec <- (I1 + I2 + C) / Nvec
+  R1_vec <- R1 / Nvec
+  R2_vec <- R2 / Nvec
+  RN_vec <- R1_vec + R2_vec
+  RN_diag <- diag(RN_vec, 2, 2)
+  
+  # Infection rates
+  inf_I1 <- as.vector(beta %*% ICN_vec) * S * u
+  inf_I2 <- as.vector(beta %*% ICN_vec) * S * (1 - u)
+  inf_C <- as.vector(betap %*% ICN_vec) * S
+  
+  # Resistance acquisition rates
+  res_from_C <- as.vector(alpha %*% (RN_diag %*% C))
+  res_to_R1_from_S <- as.vector(beta %*% (RN_diag %*% S))
+  res_to_R2_from_S <- as.vector(betap %*% (RN_diag %*% S))
+  res_from_I1 <- as.vector(alpha %*% (RN_diag %*% I1))
+  res_from_I2 <- as.vector(alpha %*% (RN_diag %*% I2))
+  
+  # Differential equations
+  dI1 <- inf_I1 - e*r*I1 - e*(1-r)*I1 - res_from_I1
+  dI2 <- inf_I2 - g*I2 - res_from_I2
+  dC <- inf_C - f*C - res_from_C
+  dR1 <- res_to_R1_from_S + res_from_I2 + res_from_I1 + r*e*I1 - g*R1
+  dR2 <- res_to_R2_from_S + res_from_C - f*R2
+  dS <- -inf_I1 - inf_I2 - inf_C - res_to_R1_from_S - res_to_R2_from_S +
+        f*C + g*R1 + f*R2 + (1-r)*e*I1 + g*I2
+  
+  # Mass balance constraint (should equal zero at equilibrium)
+  mass_balance <- SA + MA + CA + I1A + I2A + R1A + R2A + 
+                  SB + CB + I1B + I2B + R1B + R2B + MB - 1
+  
+  # Return 12 equations (11 differential equations + 1 constraint)
+   c(mass_balance, dC[1], dI1[1], dI2[1], dR1[1], dR2[1],
+    dS[2], dC[2], dI1[2], dI2[2], dR1[2], dR2[2])
+}
+
+## Find equilibrium from a single starting point
+x_start <- c(SA=0.10, CA=0.00, I1A=0.000, I2A=0.000, R1A=0.000, R2A=0.30,
+             SB=0.10, CB=0.00, I1B=0.000, I2B=0.000, R1B=0.000, R2B=0.35) #starting close to endemic equilibirium
+
+eq <- multiroot(f = eq_fn, start = x_start, parms = parms)
+print(eq$root)
+
+#Population B has a higher proportion of people who are resistant carriers! 
+
+##Stability
+eq_point <- as.numeric(eq$root)
+jac <- jacobian(func = eq_fn, x = eq_point, parms = parms)
+eigen(jac)$values
+
+## Check with multiple random starting conditions
+set.seed(42)
+n_starts <- 50
+starts <- replicate(n_starts, {
+  # Split between groups A and B
+  groupA_total <- 0.40
+  groupB_total <- 0.45
+  
+  # Distribute within group A (INCLUDING SA)
+  xA <- runif(6)  
+  xA <- xA / sum(xA) * groupA_total
+  
+  # Distribute within group B
+  xB <- runif(6)
+  xB <- xB / sum(xB) * groupB_total
+  
+  x <- c(xA, xB)
+  names(x) <- c("SA", "CA", "I1A", "I2A", "R1A", "R2A",  
+                "SB", "CB", "I1B", "I2B", "R1B", "R2B")
+  x
+}, simplify = FALSE)
+
+# Solve from each starting point AND keep the starting point
+results <- lapply(1:length(starts), function(i) {
+  st <- starts[[i]]
+  out <- try(multiroot(eq_fn, start = st, parms = parms, maxiter = 1000), silent = TRUE)
+  
+  # Return both starting point and equilibrium
+  list(
+    start_id = i,
+    start = st,
+    equilibrium = out$root,
+    converged = !inherits(out, "try-error")
+  )
+})
+
+# Convert to dataframe
+roots_df <- do.call(rbind, lapply(results, function(r) r$equilibrium))
+roots_df <- as.data.frame(roots_df)
+colnames(roots_df) <- c("SA","CA", "I1A", "I2A", "R1A", "R2A", 
+                        "SB", "CB", "I1B", "I2B", "R1B", "R2B")
+
+# Reshape for plotting
+roots_long <- roots_df %>%
+  pivot_longer(cols = everything(), names_to = "Compartment", values_to = "Proportion") %>%
+  mutate(Group = ifelse(grepl("A$", Compartment), "Group A", "Group B"),
+         Class = gsub("A$|B$", "", Compartment))
+
+# Plot
+ggplot(roots_long, aes(x = Class, y = Proportion, color = Group)) +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
+  facet_wrap(~Group) +
+  ylim(0, 1.0) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Equilibrium conditions from multiple starting points",
+       subtitle = paste(nrow(roots_df), "successful convergences out of", n_starts, "attempts")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+```
+
+##Final model: As separate populations
+```{r}
+#Population A
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I1+ I2 + R1 + R2 
+  
+  # Define intermediate terms for clarity
+  ICN <- (I1 + I2 + C) / N
+  RN <- (R1 + R2) / N
+  
+  # Define the ODEs (each deriv must be a single expression)
+  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+  
+  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+  
+  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+  
+  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+  
+  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+  
+  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+  
+  deriv(M)  <- 0
+  
+  # define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I1) <- 0.01 
+	initial(I2) <- 0.00
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+  
+  c <- user(10) 
+  a <- user(0.0002) 
+  f <- user(1/35) 
+  e <- user(1/14) 
+  g <- user(1/45)
+  u <- user(1)
+  r <- user(3e-06) 
+  p <- user(0.005)
+})
+
+# Generate the model
+model <- sir_model$new()
+
+# Run it
+t <- seq(from=0, to=2190, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I1","I2","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","hotpink","brown","red"),
+                     label=c("Immune","Susceptible","Carrier","Infected_antibiotics","Infected_no_antibiotics",
+                             "Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust=0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+pdf("popA.pdf",8,6)
+figure
+dev.off()
+
+#Population B
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I1+ I2 + R1 + R2 
+  
+  # Define intermediate terms for clarity
+  ICN <- (I1 + I2 + C) / N
+  RN <- (R1 + R2) / N
+  
+  # Define the ODEs (each deriv must be a single expression)
+  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+  
+  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+  
+  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+  
+  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+  
+  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+  
+  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+  
+  deriv(M)  <- 0
+  
+  # define initial conditions: 
+	initial(M) <- 0.05
+	initial(S) <- 0.93
+	initial(C) <- 0.01
+	initial(I1) <- 0.01 
+	initial(I2) <- 0.00
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+  
+  c <- user(10) 
+  a <- user(0.0004) 
+  f <- user(1/35) 
+  e <- user(1/14) 
+  g <- user(1/45)
+  u <- user(0.5)
+  r <- user(3e-06) 
+  p <- user(0.005)
+})
+
+# Generate a specific odin instance: 
+model <- sir_model$new() 
+
+# Solve/simulate from this model: 
+# First define some time points: 
+t <- seq(from=0, to=2190, by=10)
+sol <- as_tibble(data.frame(model$run(t)))
+
+end_labels <- sol %>% pivot_longer(-t) %>% group_by(name) %>% filter(t == max(t)) %>% ungroup()%>%
+  mutate(
+    y_jitter = value + seq(-0.02, 0.03, length.out = n())
+  )
+
+figure<- sol %>% 
+	pivot_longer(-t) %>% 
+	ggplot(aes(x=t, y=value, col=factor(name, levels=c("M","S","C","I1","I2","R1","R2")))) + 
+	geom_line() + xlab("Days(t)")+ ylab("Proportion")+
+  scale_color_manual(values=c("forestgreen","dodgerblue","purple","black","hotpink","brown","red"),
+                     label=c("Immune","Susceptible","Carrier","Infected_antibiotics","Infected_no_antibiotics",
+                             "Resistant_infeced","Resistant_carrier"))+
+	theme_classic() + 
+  geom_text(data = end_labels,
+            aes(x = t, y = y_jitter, label = sprintf("%.2f", value)),hjust=0.4,size = 3,show.legend = FALSE)+
+	theme(legend.title=element_blank())
+
+figure
+
+pdf("popB.pdf",8,6)
+figure
+dev.off()
+```
+
+##Final model: Equilibirium and stability analysis for separate populations
+```{r}
+#Population A
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I1+ I2 + R1 + R2 
+  
+  # Define intermediate terms for clarity
+  ICN <- (I1 + I2 + C) / N
+  RN <- (R1 + R2) / N
+  
+  # Define the ODEs (each deriv must be a single expression)
+  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+  
+  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+  
+  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+  
+  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+  
+  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+  
+  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+  
+  deriv(M)  <- 0
+  
+  # define initial conditions: 
+	initial(M) <- 0.10
+	initial(S) <- 0.88
+	initial(C) <- 0.01
+	initial(I1) <- 0.01 
+	initial(I2) <- 0.00
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+  
+  c <- user(10) 
+  a <- user(0.0002) 
+  f <- user(1/35) 
+  e <- user(1/14) 
+  g <- user(1/45)
+  u <- user(1)
+  r <- user(3e-06) 
+  p <- user(0.005)
+})
+
+# Generate the model
+model <- sir_model$new()
+
+# Solve/simulate from this model: 
+t <- seq(from=0, to=2190, by=10) 
+sol <- as_tibble(data.frame(model$run(t)))
+
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10, a=0.0002, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.10, u=1.00)
+
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
+  with(parms, {
+    N <- S + C + I1 + I2 + R1 + R2 + M
+    ICN <- (I1 + I2 + C) / N
+    RN <- (R1 + R2) / N
+    
+    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+    
+    # Mass balance: fix the typo (I -> I1 + I2)
+    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
+    
+    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
+    c(dC, dI1, dI2, dR1, dR2, mass)
+  })
+}
+
+# Starting point
+x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+eq$root
+eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
+sum(eq$root) + parms$M  # should be ~1
+
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(6)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
+  names(x) <- c("S","C","I1","I2","R1","R2")
+  x
+}, simplify=FALSE)
+
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+do.call(rbind, roots)
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:6)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+
+#Stability
+x_eq <- eq$root
+J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
+eig <- eigen(J)$values
+eig 
+
+
+#Population B
+sir_model <- odin({
+#Define total people
+  N <- M + S + C + I1+ I2 + R1 + R2 
+  
+  # Define intermediate terms for clarity
+  ICN <- (I1 + I2 + C) / N
+  RN <- (R1 + R2) / N
+  
+  # Define the ODEs (each deriv must be a single expression)
+  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+  
+  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+  
+  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+  
+  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+  
+  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+  
+  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+  
+  deriv(M)  <- 0
+  
+  # define initial conditions: 
+	initial(M) <- 0.05
+	initial(S) <- 0.93
+	initial(C) <- 0.01
+	initial(I1) <- 0.01 
+	initial(I2) <- 0.00
+	initial(R1) <- 0.00
+	initial(R2) <- 0.00
+  
+  c <- user(10) 
+  a <- user(0.0005) 
+  f <- user(1/35) 
+  e <- user(1/14) 
+  g <- user(1/45)
+  u <- user(0.5)
+  r <- user(3e-06) 
+  p <- user(0.005)
+})
+
+# Generate the model
+model <- sir_model$new()
+
+# Solve/simulate from this model: 
+t <- seq(from=0, to=2190, by=10) 
+sol <- as_tibble(data.frame(model$run(t)))
+
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10, a=0.0004, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.05, u=0.50)
+
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
+  with(parms, {
+    N <- S + C + I1 + I2 + R1 + R2 + M
+    ICN <- (I1 + I2 + C) / N
+    RN <- (R1 + R2) / N
+    
+    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+    
+    # Mass balance: fix the typo (I -> I1 + I2)
+    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
+    
+    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
+    c(dC, dI1, dI2, dR1, dR2, mass)
+  })
+}
+
+# Starting point
+x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+eq$root
+eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
+sum(eq$root) + parms$M  # should be ~1
+
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(6)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.95
+  names(x) <- c("S","C","I1","I2","R1","R2")
+  x
+}, simplify=FALSE)
+
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+do.call(rbind, roots)
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:6)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+
+#Stability
+x_eq <- eq$root
+J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
+eig <- eigen(J)$values
+eig 
+```
+
