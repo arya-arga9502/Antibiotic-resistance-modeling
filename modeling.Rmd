@@ -7,7 +7,8 @@ editor_options:
   Author: Arya Gautam
 ---
 
-##Note: It may be important to restart R to make sure each model solves its ODEs independently to avoid using cached model which reuses the solutions
+##Note: It may be important to restart R to make sure each model solves its ODEs 
+##independently to avoid using cached model which reuses the solutions
 
 #Load libraries
 ```{r}
@@ -1473,7 +1474,7 @@ ggplot(roots_long, aes(x = Class, y = Proportion, color = Group)) +
   
 ```
 
-##Final model: As separate populations
+##Final model: As separate populations (population A)
 ```{r}
 #Population A
 sir_model <- odin({
@@ -1544,10 +1545,73 @@ figure<- sol %>%
 
 figure
 
-pdf("popA.pdf",8,6)
-figure
-dev.off()
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10, a=0.0002, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.10, u=1.00)
 
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
+  with(parms, {
+    N <- S + C + I1 + I2 + R1 + R2 + M
+    ICN <- (I1 + I2 + C) / N
+    RN <- (R1 + R2) / N
+    
+    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+    
+    # Mass balance: fix the typo (I -> I1 + I2)
+    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
+    
+    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
+    c(dC, dI1, dI2, dR1, dR2, mass)
+  })
+}
+
+# Starting point
+x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+eq$root
+eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
+sum(eq$root) + parms$M  # should be ~1
+
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(6)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
+  names(x) <- c("S","C","I1","I2","R1","R2")
+  x
+}, simplify=FALSE)
+
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+#do.call(rbind, roots)
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:6)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+
+#Stability
+x_eq <- eq$root
+J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
+eig <- eigen(J)$values
+eig #not stable
+
+
+
+```
+
+##Final model: As separate populations (population B)
+```{r}
 #Population B
 sir_model <- odin({
 #Define total people
@@ -1618,175 +1682,6 @@ figure<- sol %>%
 
 figure
 
-pdf("popB.pdf",8,6)
-figure
-dev.off()
-```
-
-##Final model: Equilibirium and stability analysis for separate populations
-```{r}
-#Population A
-sir_model <- odin({
-#Define total people
-  N <- M + S + C + I1+ I2 + R1 + R2 
-  
-  # Define intermediate terms for clarity
-  ICN <- (I1 + I2 + C) / N
-  RN <- (R1 + R2) / N
-  
-  # Define the ODEs (each deriv must be a single expression)
-  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-  
-  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-  
-  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-  
-  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-  
-  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-  
-  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-  
-  deriv(M)  <- 0
-  
-  # define initial conditions: 
-	initial(M) <- 0.10
-	initial(S) <- 0.88
-	initial(C) <- 0.01
-	initial(I1) <- 0.01 
-	initial(I2) <- 0.00
-	initial(R1) <- 0.00
-	initial(R2) <- 0.00
-  
-  c <- user(10) 
-  a <- user(0.0002) 
-  f <- user(1/35) 
-  e <- user(1/14) 
-  g <- user(1/45)
-  u <- user(1)
-  r <- user(3e-06) 
-  p <- user(0.005)
-})
-
-# Generate the model
-model <- sir_model$new()
-
-# Solve/simulate from this model: 
-t <- seq(from=0, to=2190, by=10) 
-sol <- as_tibble(data.frame(model$run(t)))
-
-##Lets solve for equilibrium abundances numerically:
-parms <- list(c=10, a=0.0002, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.10, u=1.00)
-
-eq_fn <- function(x, parms){
-  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
-  with(parms, {
-    N <- S + C + I1 + I2 + R1 + R2 + M
-    ICN <- (I1 + I2 + C) / N
-    RN <- (R1 + R2) / N
-    
-    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-    
-    # Mass balance: fix the typo (I -> I1 + I2)
-    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
-    
-    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
-    c(dC, dI1, dI2, dR1, dR2, mass)
-  })
-}
-
-# Starting point
-x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
-eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
-eq$root
-eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
-sum(eq$root) + parms$M  # should be ~1
-
-##Check iteratively with many random starting conditions
-set.seed(1)
-starts <- replicate(30, {
-  x <- runif(6)
-  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
-  names(x) <- c("S","C","I1","I2","R1","R2")
-  x
-}, simplify=FALSE)
-
-roots <- lapply(starts, function(st){
-  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
-  if(inherits(out, "try-error")) return(rep(NA,5))
-  out
-})
-
-do.call(rbind, roots)
-roots <- as.data.frame(roots)
-roots <- as.data.frame(t(roots))
-rownames(roots) <- seq(1:nrow(roots))
-roots <- pivot_longer(roots,cols=1:6)
-names(roots) <- c("Class","Proportion")
-ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
-
-#Stability
-x_eq <- eq$root
-J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
-eig <- eigen(J)$values
-eig 
-
-
-#Population B
-sir_model <- odin({
-#Define total people
-  N <- M + S + C + I1+ I2 + R1 + R2 
-  
-  # Define intermediate terms for clarity
-  ICN <- (I1 + I2 + C) / N
-  RN <- (R1 + R2) / N
-  
-  # Define the ODEs (each deriv must be a single expression)
-  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-  
-  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-  
-  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-  
-  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-  
-  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-  
-  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-  
-  deriv(M)  <- 0
-  
-  # define initial conditions: 
-	initial(M) <- 0.05
-	initial(S) <- 0.93
-	initial(C) <- 0.01
-	initial(I1) <- 0.01 
-	initial(I2) <- 0.00
-	initial(R1) <- 0.00
-	initial(R2) <- 0.00
-  
-  c <- user(10) 
-  a <- user(0.0005) 
-  f <- user(1/35) 
-  e <- user(1/14) 
-  g <- user(1/45)
-  u <- user(0.5)
-  r <- user(3e-06) 
-  p <- user(0.005)
-})
-
-# Generate the model
-model <- sir_model$new()
-
-# Solve/simulate from this model: 
-t <- seq(from=0, to=2190, by=10) 
-sol <- as_tibble(data.frame(model$run(t)))
-
 ##Lets solve for equilibrium abundances numerically:
 parms <- list(c=10, a=0.0004, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.05, u=0.50)
 
@@ -1834,7 +1729,7 @@ roots <- lapply(starts, function(st){
   out
 })
 
-do.call(rbind, roots)
+#do.call(rbind, roots)
 roots <- as.data.frame(roots)
 roots <- as.data.frame(t(roots))
 rownames(roots) <- seq(1:nrow(roots))
@@ -1846,6 +1741,6 @@ ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title=
 x_eq <- eq$root
 J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
 eig <- eigen(J)$values
-eig 
+eig #not stable
 ```
 

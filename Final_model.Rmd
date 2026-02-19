@@ -1,18 +1,52 @@
 ---
 title: "Antibiotic-resistance.Rmd"
 output: github_document
-date: "2026-02-19"
 Author: Arya Gautam
 editor_options: 
   chunk_output_type: console
 ---
-# Antibiotic-resistance-modeling
+Here is the final model with populations A (high antibiotic use, high "immunity") and population B (low antibiotic use,low "immunity") in a 2-group structured model.
 
-Here is the final model with populations A (high antibiotic use, high "immunity") and population B (low antibiotic use,low "immunity") 
-in a 2-group structured model.
+![](model_design.png)
 
-#Load libraries
-```{r}
+
+
+In this compartmental model, the compartments are:
+
+S = susceptible
+
+I1 = infected with antibiotic use
+
+I2 = infected with no antibiotic use
+
+R1 = infected with resistant strain
+
+C = asymptomatic carrier
+
+R2 = asymptomatic carrier with resistant strain
+
+M = immune
+
+
+The parameters are defined as follows:
+
+c = contact rate (10 for within population and 5 for between populations)
+
+p = probability of transmission (0.005)
+
+a = probability of virulent infection (0.0002 for population A and 0.0004 for population B)
+
+u = probability of antibiotic use (1 for population A and 0.5 for population B)
+
+f = clearance rate in the absence of virulent infection (1/35)
+
+e = recovery rate in case of virulent infection under antibiotic use (1/14)
+
+g = recovery rate in case of virulent infection under no antibiotic use or antibiotic resistance (1/45)
+
+r = probability of resistance emergence (3e-06)
+
+```{r, message=FALSE, include=FALSE}
 library(tidyverse) 
 library(odin)
 library(pkgbuild)
@@ -25,8 +59,7 @@ library(tidyr)
 library(dplyr)
 ```
 
-##Final model: Modeling the population as a 2 group structured populations A and B: independent N; slightly different model
-```{r}
+```{r, echo=FALSE}
 rhs_AB_sepN <- function(t, state, parms) {
   with(as.list(state), {
 
@@ -141,8 +174,8 @@ ggplot(df_long, aes(x=time, y=value, color=compartment, linetype=group)) +
 
 ```
 
-##Final model: Equilibirium and stability analysis for the 2 group structured model
-```{r}
+Equilibrium and stability analysis for the 2 group structured model
+```{r,echo=FALSE}
 ## Equilibrium solver for two-group resistance model
 parms <- list(
   e = 1/14,
@@ -240,23 +273,30 @@ eq_fn <- function(x, parms) {
    c(mass_balance, dC[1], dI1[1], dI2[1], dR1[1], dR2[1],
     dS[2], dC[2], dI1[2], dI2[2], dR1[2], dR2[2])
 }
+```
 
+```{r, echo=FALSE}
 ## Find equilibrium from a single starting point
 x_start <- c(SA=0.10, CA=0.00, I1A=0.000, I2A=0.000, R1A=0.000, R2A=0.30,
              SB=0.10, CB=0.00, I1B=0.000, I2B=0.000, R1B=0.000, R2B=0.35) #starting close to endemic equilibirium
 
 eq <- multiroot(f = eq_fn, start = x_start, parms = parms)
-print(eq$root)
+cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
 
 #Population B has a higher proportion of people who are resistant carriers in the steady state! 
 
 ##Stability
 eq_point <- as.numeric(eq$root)
 jac <- jacobian(func = eq_fn, x = eq_point, parms = parms)
-eigen(jac)$values
+cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:", eigen(jac)$values,"\n")
 
-#The steady states are not stable.
+#The steady state is not stable.
+```
+We can see that population B has a higher proportion of its population who carry resistant strains of Streptococcus Pneumonia in equilibrium conditions. However, we find that this is not a stable equilibrium.
 
+We can also start at multiple randomly generated conditions and follow the trajectory numerically to assess steady states.
+Here's what we get when we do that. 
+```{r,echo=FALSE, warning=FALSE}
 ## Check with multiple random starting conditions
 set.seed(42)
 n_starts <- 50
@@ -314,11 +354,14 @@ ggplot(roots_long, aes(x = Class, y = Proportion, color = Group)) +
   labs(title = "Equilibrium conditions from multiple starting points",
        subtitle = paste(nrow(roots_df), "successful convergences out of", n_starts, "attempts")) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
 ```
 
-##Final model: As separate populations
-```{r}
+Oof! That's messy!
+
+We can also model them as separate populations. 
+
+First, let's look at population A
+```{r,echo=FALSE, warning=FALSE}
 #Population A
 sir_model <- odin({
 #Define total people
@@ -388,7 +431,72 @@ figure<- sol %>%
 
 figure
 
+##Lets solve for equilibrium abundances numerically:
+parms <- list(c=10, a=0.0002, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.10, u=1.00)
 
+eq_fn <- function(x, parms){
+  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
+  with(parms, {
+    N <- S + C + I1 + I2 + R1 + R2 + M
+    ICN <- (I1 + I2 + C) / N
+    RN <- (R1 + R2) / N
+    
+    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
+    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
+    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
+    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
+    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
+    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
+    
+    # Mass balance: fix the typo (I -> I1 + I2)
+    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
+    
+    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
+    c(dC, dI1, dI2, dR1, dR2, mass)
+  })
+}
+
+# Starting point
+x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
+eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
+cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
+
+#Stability
+x_eq <- eq$root
+J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
+eig <- eigen(J)$values
+cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:",eig, "\n") #not stable!
+```
+33% of the population end up as carriers of resistant strains of Streptococcus Pneumonia in population A. 
+This steady state, however, isn't stable.
+
+Similarly, starting at multiple random conditions give us these steady states
+```{r,echo=FALSE, warning=FALSE}
+##Check iteratively with many random starting conditions
+set.seed(1)
+starts <- replicate(30, {
+  x <- runif(6)
+  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
+  names(x) <- c("S","C","I1","I2","R1","R2")
+  x
+}, simplify=FALSE)
+roots <- lapply(starts, function(st){
+  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
+  if(inherits(out, "try-error")) return(rep(NA,5))
+  out
+})
+
+#do.call(rbind, roots)
+roots <- as.data.frame(roots)
+roots <- as.data.frame(t(roots))
+rownames(roots) <- seq(1:nrow(roots))
+roots <- pivot_longer(roots,cols=1:6)
+names(roots) <- c("Class","Proportion")
+ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
+```
+
+Now, for population B
+```{r,echo=FALSE, warning=FALSE}
 #Population B
 sir_model <- odin({
 #Define total people
@@ -458,171 +566,6 @@ figure<- sol %>%
 	theme(legend.title=element_blank())
 
 figure
-```
-
-##Final model: Equilibirium and stability analysis for separate populations
-```{r}
-#Population A
-sir_model <- odin({
-#Define total people
-  N <- M + S + C + I1+ I2 + R1 + R2 
-  
-  # Define intermediate terms for clarity
-  ICN <- (I1 + I2 + C) / N
-  RN <- (R1 + R2) / N
-  
-  # Define the ODEs (each deriv must be a single expression)
-  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-  
-  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-  
-  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-  
-  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-  
-  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-  
-  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-  
-  deriv(M)  <- 0
-  
-  # define initial conditions: 
-	initial(M) <- 0.10
-	initial(S) <- 0.88
-	initial(C) <- 0.01
-	initial(I1) <- 0.01 
-	initial(I2) <- 0.00
-	initial(R1) <- 0.00
-	initial(R2) <- 0.00
-  
-  c <- user(10) 
-  a <- user(0.0002) 
-  f <- user(1/35) 
-  e <- user(1/14) 
-  g <- user(1/45)
-  u <- user(1)
-  r <- user(3e-06) 
-  p <- user(0.005)
-})
-
-# Generate the model
-model <- sir_model$new()
-
-# Solve/simulate from this model: 
-t <- seq(from=0, to=2190, by=10) 
-sol <- as_tibble(data.frame(model$run(t)))
-
-##Lets solve for equilibrium abundances numerically:
-parms <- list(c=10, a=0.0002, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.10, u=1.00)
-
-eq_fn <- function(x, parms){
-  S  <- x[1]; C <- x[2]; I1 <- x[3]; I2 <- x[4]; R1 <- x[5]; R2 <- x[6]
-  with(parms, {
-    N <- S + C + I1 + I2 + R1 + R2 + M
-    ICN <- (I1 + I2 + C) / N
-    RN <- (R1 + R2) / N
-    
-    dS  <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-    dC  <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-    dI1 <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-    dI2 <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-    dR1 <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-    dR2 <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-    
-    # Mass balance: fix the typo (I -> I1 + I2)
-    mass <- S + C + I1 + I2 + R1 + R2 - (1 - M)
-    
-    # Return 6 equations: 5 ODEs + mass balance (drop dS as redundant)
-    c(dC, dI1, dI2, dR1, dR2, mass)
-  })
-}
-
-# Starting point
-x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
-eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
-eq$root
-eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
-sum(eq$root) + parms$M  # should be ~1
-
-##Check iteratively with many random starting conditions
-set.seed(1)
-starts <- replicate(30, {
-  x <- runif(6)
-  x <- x / sum(x) * (1 - parms$M)   # enforce sum=0.9
-  names(x) <- c("S","C","I1","I2","R1","R2")
-  x
-}, simplify=FALSE)
-
-roots <- lapply(starts, function(st){
-  out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
-  if(inherits(out, "try-error")) return(rep(NA,5))
-  out
-})
-
-do.call(rbind, roots)
-roots <- as.data.frame(roots)
-roots <- as.data.frame(t(roots))
-rownames(roots) <- seq(1:nrow(roots))
-roots <- pivot_longer(roots,cols=1:6)
-names(roots) <- c("Class","Proportion")
-ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
-
-#Stability
-x_eq <- eq$root
-J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
-eig <- eigen(J)$values
-eig 
-
-
-#Population B
-sir_model <- odin({
-#Define total people
-  N <- M + S + C + I1+ I2 + R1 + R2 
-  
-  # Define intermediate terms for clarity
-  ICN <- (I1 + I2 + C) / N
-  RN <- (R1 + R2) / N
-  
-  # Define the ODEs (each deriv must be a single expression)
-  deriv(S) <- -c*p*ICN*a*S*u - c*p*ICN*a*S*(1-u) - c*p*ICN*S*(1-a) - c*p*RN*a*S - c*p*RN*(1-a)*S + f*C + g*R1 + f*R2 + (1-r)*I1*e + g*I2 
-  
-  deriv(C) <- -f*C - c*p*RN*C + c*p*ICN*S*(1-a)
-  
-  deriv(I1) <- c*p*ICN*a*S*u - r*I1*e - (1-r)*e*I1 - c*p*RN*I1
-  
-  deriv(I2) <- c*p*ICN*a*S*(1-u) - c*p*RN*I2 - g*I2
-  
-  deriv(R1) <- r*I1*e - g*R1 + c*p*RN*a*S + c*p*RN*I2 + c*p*RN*I1
-  
-  deriv(R2) <- -f*R2 + c*p*RN*C + c*p*RN*(1-a)*S
-  
-  deriv(M)  <- 0
-  
-  # define initial conditions: 
-	initial(M) <- 0.05
-	initial(S) <- 0.93
-	initial(C) <- 0.01
-	initial(I1) <- 0.01 
-	initial(I2) <- 0.00
-	initial(R1) <- 0.00
-	initial(R2) <- 0.00
-  
-  c <- user(10) 
-  a <- user(0.0005) 
-  f <- user(1/35) 
-  e <- user(1/14) 
-  g <- user(1/45)
-  u <- user(0.5)
-  r <- user(3e-06) 
-  p <- user(0.005)
-})
-
-# Generate the model
-model <- sir_model$new()
-
-# Solve/simulate from this model: 
-t <- seq(from=0, to=2190, by=10) 
-sol <- as_tibble(data.frame(model$run(t)))
 
 ##Lets solve for equilibrium abundances numerically:
 parms <- list(c=10, a=0.0004, f=1/35, e=1/14, g=1/45, r=3e-06, p=0.005, M=0.05, u=0.50)
@@ -652,10 +595,19 @@ eq_fn <- function(x, parms){
 # Starting point
 x_start <- c(S=0.60, C=0.00, I1=0.000, I2=0.000, R1=0.00, R2=0.30)
 eq <- multiroot(f=eq_fn, start=x_start, parms=parms)
-eq$root
-eq_fn(eq$root, parms)   # should be ~0 for all 5 equations
-sum(eq$root) + parms$M  # should be ~1
+cat("The steady state for an endemic equilibrium is:", eq$root, "\n")
 
+#Stability
+x_eq <- eq$root
+J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
+eig <- eigen(J)$values
+cat("The eigenvalue of the jacobian calculated at the steady state calculated above is:",eig, "\n") #not stable
+```
+38% of the population end up as carriers of resistant strains of Streptococcus Pneumonia in population A. 
+This steady state is also not stable.
+
+Starting at multiple random conditions give us these steady states
+```{r,echo=FALSE, warning=FALSE}
 ##Check iteratively with many random starting conditions
 set.seed(1)
 starts <- replicate(30, {
@@ -664,25 +616,19 @@ starts <- replicate(30, {
   names(x) <- c("S","C","I1","I2","R1","R2")
   x
 }, simplify=FALSE)
-
 roots <- lapply(starts, function(st){
   out <- try(multiroot(eq_fn, start=st, parms=parms)$root, silent=TRUE)
   if(inherits(out, "try-error")) return(rep(NA,5))
   out
 })
 
-do.call(rbind, roots)
+#do.call(rbind, roots)
 roots <- as.data.frame(roots)
 roots <- as.data.frame(t(roots))
 rownames(roots) <- seq(1:nrow(roots))
 roots <- pivot_longer(roots,cols=1:6)
 names(roots) <- c("Class","Proportion")
 ggplot(roots,aes(x=Class,y=Proportion))+ geom_jitter()+ ylim(0,1.0)+ labs(title="Equilibirum conditions")
-
-#Stability
-x_eq <- eq$root
-J <- numDeriv::jacobian(func = eq_fn, x = x_eq, parms = parms)
-eig <- eigen(J)$values
-eig 
 ```
 
+In conclusion, can see that population B, despite using antibiotics only 50% of the time that they get an infection with Streptococcus Pneumonia, end up with a higher proportion of its population who become carriers of resistant strains no matter how me model the system.
